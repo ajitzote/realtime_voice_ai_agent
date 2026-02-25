@@ -64,7 +64,7 @@ class GeminiLive:
                         chunk = await video_input_queue.get()
                         logger.info(f"Sending video frame to Gemini: {len(chunk)} bytes")
                         await session.send_realtime_input(
-                            media=types.Blob(data=chunk, mime_type="image/jpeg")
+                            video=types.Blob(data=chunk, mime_type="image/jpeg")
                         )
                 except asyncio.CancelledError:
                     pass

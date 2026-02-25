@@ -368,18 +368,12 @@ class GeminiLiveAPI {
   }
 
   sendTextMessage(text) {
-    const textMessage = {
-      clientContent: {
-        turns: [
-          {
-            role: "user",
-            parts: [{ text: text }],
-          },
-        ],
-        turnComplete: true,
+    const message = {
+      realtimeInput: {
+        text: text,
       },
     };
-    this.sendMessage(textMessage);
+    this.sendMessage(message);
   }
 
   sendToolResponse(toolCallId, response) {
@@ -394,16 +388,15 @@ class GeminiLiveAPI {
   }
 
   sendRealtimeInputMessage(data, mimeType) {
-    const message = {
-      realtimeInput: {
-        mediaChunks: [
-          {
-            mimeType: mimeType,
-            data: data,
-          },
-        ],
-      },
-    };
+    const blob = { mimeType, data };
+    const message = { realtimeInput: {} };
+
+    if (mimeType.startsWith("audio/")) {
+      message.realtimeInput.audio = blob;
+    } else if (mimeType.startsWith("image/") || mimeType.startsWith("video/")) {
+      message.realtimeInput.video = blob;
+    }
+
     this.sendMessage(message);
     this.addToBytesSent(data);
   }
