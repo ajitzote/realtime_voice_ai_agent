@@ -12,18 +12,19 @@ This guide explains how to deploy the Gemini Live demo application to Google Clo
 
 ### 1. Enable APIs
 
-Enable the Cloud Run and Cloud Build APIs in your project:
+Enable the required APIs in your project:
 
 ```bash
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com secretmanager.googleapis.com
 ```
 
-### 2. Configure Environment Variables
+### 2. Store your API key in Secret Manager
 
-The application requires the following environment variables:
+Store your Gemini API key securely using Secret Manager:
 
-- `GEMINI_API_KEY`: Your Gemini API key.
-- `MODEL`: (Optional) The model name to use. Defaults to `gemini-3.1-flash-live-preview`.
+```bash
+echo -n "$(grep GEMINI_API_KEY .env | cut -d '=' -f2)" | gcloud secrets create GEMINI_API_KEY --data-file=-
+```
 
 ### 3. Deploy to Cloud Run
 
@@ -32,22 +33,14 @@ Run the following command from the root of the repository to build and deploy th
 ```bash
 gcloud run deploy gemini-live-demo \
     --source . \
-    --env-vars-file .env.yaml \
+    --set-secrets GEMINI_API_KEY=GEMINI_API_KEY:latest \
+    --set-env-vars MODEL=gemini-3.1-flash-live-preview \
     --allow-unauthenticated \
     --region us-central1
 ```
 
 > [!TIP]
-> Instead of using `--env-vars-file`, you can pass variables directly using `--set-env-vars GEMINI_API_KEY=YOUR_KEY`.
-
-#### Create `.env.yaml` (Recommended)
-
-To avoid exposing your API key in the command history, create a `.env.yaml` file:
-
-```yaml
-GEMINI_API_KEY: "YOUR_GEMINI_API_KEY"
-MODEL: "gemini-3.1-flash-live-preview"
-```
+> The `MODEL` env var is optional and defaults to `gemini-3.1-flash-live-preview`.
 
 ### 4. Access the Application
 
@@ -55,30 +48,33 @@ Once the deployment completes, the gcloud CLI will provide a Service URL (e.g., 
 
 ## Twilio Integration (Optional)
 
-If you are using the Twilio integration, store credentials in **Secret Manager** rather than `.env.yaml`:
+If you are using the Twilio integration, store Twilio credentials in **Secret Manager**:
 
 ```bash
-# Enable the Secret Manager API
-gcloud services enable secretmanager.googleapis.com
-
 # Create secrets (reads values from your .env file)
 echo -n "$(grep TWILIO_ACCOUNT_SID .env | cut -d '=' -f2)" | gcloud secrets create TWILIO_ACCOUNT_SID --data-file=-
 echo -n "$(grep TWILIO_AUTH_TOKEN .env | cut -d '=' -f2)" | gcloud secrets create TWILIO_AUTH_TOKEN --data-file=-
 ```
 
-Then deploy with `--set-secrets` to mount them as environment variables:
+Then deploy with all secrets:
 
 ```bash
 gcloud run deploy gemini-live-demo \
     --source . \
-    --env-vars-file .env.yaml \
-    --set-secrets TWILIO_ACCOUNT_SID=TWILIO_ACCOUNT_SID:latest,TWILIO_AUTH_TOKEN=TWILIO_AUTH_TOKEN:latest \
-    --set-env-vars TWILIO_APP_HOST=your-cloud-run-url.run.app \
+    --set-secrets GEMINI_API_KEY=GEMINI_API_KEY:latest,TWILIO_ACCOUNT_SID=TWILIO_ACCOUNT_SID:latest,TWILIO_AUTH_TOKEN=TWILIO_AUTH_TOKEN:latest \
     --allow-unauthenticated \
     --region us-central1
 ```
 
-After deploying, update your Twilio Webhook URL in the Twilio Console to point to `https://YOUR_CLOUD_RUN_URL/twilio/inbound`.
+Once deployed, copy the Service URL from the output and update the service with `TWILIO_APP_HOST`:
+
+```bash
+gcloud run services update gemini-live-demo \
+    --set-env-vars TWILIO_APP_HOST=your-cloud-run-url.run.app \
+    --region us-central1
+```
+
+Finally, update your Twilio Webhook URL in the Twilio Console to point to `https://YOUR_CLOUD_RUN_URL/twilio/inbound`.
 
 ## Local Testing with Docker
 

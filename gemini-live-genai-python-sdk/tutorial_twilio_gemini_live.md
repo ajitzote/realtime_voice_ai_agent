@@ -316,8 +316,10 @@ async def twilio_outbound(
 Trigger it with curl:
 
 ```bash
-curl -X POST "http://localhost:8000/twilio/outbound?to_number=+1234567890&from_number=+1098765432"
+curl -X POST "http://localhost:8000/twilio/outbound?to_number=%2B1234567890&from_number=%2B1098765432"
 ```
+
+> **Note:** The `+` in phone numbers must be URL-encoded as `%2B` in query parameters, otherwise it will be interpreted as a space.
 
 ---
 
@@ -358,35 +360,45 @@ Dial your Twilio number. You'll hear "Connecting to Gemini Live" followed by Gem
 For production, deploy to Google Cloud Run:
 
 ```bash
+# Store your API key in Secret Manager
+gcloud services enable secretmanager.googleapis.com
+echo -n "$(grep GEMINI_API_KEY .env | cut -d '=' -f2)" | gcloud secrets create GEMINI_API_KEY --data-file=-
+
 # Deploy the app
 gcloud run deploy gemini-live-demo \
     --source . \
-    --env-vars-file .env.yaml \
+    --set-secrets GEMINI_API_KEY=GEMINI_API_KEY:latest \
+    --set-env-vars MODEL=gemini-3.1-flash-live-preview \
     --allow-unauthenticated \
     --region us-central1
 ```
 
-For Twilio secrets, use **Secret Manager** instead of environment files:
+For Twilio secrets, also store them in **Secret Manager**:
 
 ```bash
-# Store secrets securely
-gcloud services enable secretmanager.googleapis.com
+# Store Twilio secrets
 echo -n "$(grep TWILIO_ACCOUNT_SID .env | cut -d '=' -f2)" | \
     gcloud secrets create TWILIO_ACCOUNT_SID --data-file=-
 echo -n "$(grep TWILIO_AUTH_TOKEN .env | cut -d '=' -f2)" | \
     gcloud secrets create TWILIO_AUTH_TOKEN --data-file=-
 
-# Deploy with secrets
+# Deploy with all secrets
 gcloud run deploy gemini-live-demo \
     --source . \
-    --env-vars-file .env.yaml \
-    --set-secrets TWILIO_ACCOUNT_SID=TWILIO_ACCOUNT_SID:latest,TWILIO_AUTH_TOKEN=TWILIO_AUTH_TOKEN:latest \
-    --set-env-vars TWILIO_APP_HOST=your-cloud-run-url.run.app \
+    --set-secrets GEMINI_API_KEY=GEMINI_API_KEY:latest,TWILIO_ACCOUNT_SID=TWILIO_ACCOUNT_SID:latest,TWILIO_AUTH_TOKEN=TWILIO_AUTH_TOKEN:latest \
     --allow-unauthenticated \
     --region us-central1
 ```
 
-Then update your Twilio webhook to point to your Cloud Run URL.
+Once deployed, copy the Service URL from the output and update the service with `TWILIO_APP_HOST`:
+
+```bash
+gcloud run services update gemini-live-demo \
+    --set-env-vars TWILIO_APP_HOST=your-cloud-run-url.run.app \
+    --region us-central1
+```
+
+Then update your Twilio webhook to point to `https://YOUR_CLOUD_RUN_URL/twilio/inbound`.
 
 ---
 

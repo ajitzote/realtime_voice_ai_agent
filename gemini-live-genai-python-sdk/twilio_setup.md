@@ -43,8 +43,10 @@ TWILIO_APP_HOST=your-ngrok-subdomain.ngrok.io
 2.  **Trigger the call** using the `/twilio/outbound` endpoint. You can use `curl`:
 
     ```bash
-    curl -X POST "http://localhost:8000/twilio/outbound?to_number=+1234567890&from_number=+1098765432"
+    curl -X POST "http://localhost:8000/twilio/outbound?to_number=%2B1234567890&from_number=%2B1098765432"
     ```
+
+    > **Note:** The `+` in phone numbers must be URL-encoded as `%2B` in query parameters, otherwise it will be interpreted as a space.
 
     - `to_number`: The destination phone number.
     - `from_number`: Your Twilio phone number.
