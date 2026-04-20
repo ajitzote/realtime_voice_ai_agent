@@ -5,11 +5,12 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from gemini_live import GeminiLive
+from twilio_handler import TwilioHandler
 
 # Load environment variables
 load_dotenv()
@@ -23,6 +24,11 @@ logger = logging.getLogger(__name__)
 # Configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 MODEL = os.getenv("MODEL", "gemini-3.1-flash-live-preview")
+
+# Twilio config (optional — only needed for phone call integration)
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_APP_HOST = os.getenv("TWILIO_APP_HOST")
 
 # Initialize FastAPI
 app = FastAPI()
@@ -119,8 +125,73 @@ async def websocket_endpoint(websocket: WebSocket):
             pass
 
 
+# ─── Twilio Endpoints ─────────────────────────────────────────────────────────
+
+@app.post("/twilio/inbound")
+async def twilio_inbound():
+    """Handles inbound Twilio calls. Returns TwiML to open a media stream."""
+    host = TWILIO_APP_HOST or "localhost:8000"
+    twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Say>Connecting to Gemini Live.</Say>
+    <Connect>
+        <Stream url="wss://{host}/twilio/stream" />
+    </Connect>
+</Response>"""
+    return Response(content=twiml, media_type="application/xml")
+
+
+@app.post("/twilio/outbound")
+async def twilio_outbound(
+    to_number: str = Query(..., description="Destination phone number (E.164 format)"),
+    from_number: str = Query(..., description="Your Twilio phone number (E.164 format)"),
+):
+    """Initiates an outbound Twilio call that connects to Gemini Live."""
+    if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
+        return {"error": "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN must be set in environment"}
+    if not TWILIO_APP_HOST:
+        return {"error": "TWILIO_APP_HOST must be set in environment"}
+
+    from twilio.rest import Client as TwilioClient
+
+    client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    twiml = f"""<Response>
+    <Say>Connecting to Gemini Live.</Say>
+    <Connect>
+        <Stream url="wss://{TWILIO_APP_HOST}/twilio/stream" />
+    </Connect>
+</Response>"""
+
+    call = client.calls.create(
+        to=to_number,
+        from_=from_number,
+        twiml=twiml,
+    )
+    logger.info(f"Outbound call initiated: {call.sid}")
+    return {"callSid": call.sid, "status": call.status}
+
+
+@app.websocket("/twilio/stream")
+async def twilio_stream(websocket: WebSocket):
+    """WebSocket endpoint for Twilio Media Streams."""
+    await websocket.accept()
+    logger.info("Twilio media stream WebSocket connected")
+
+    handler = TwilioHandler(gemini_api_key=GEMINI_API_KEY, model=MODEL)
+    try:
+        await handler.handle_media_stream(websocket)
+    except Exception as e:
+        logger.error(f"Twilio stream error: {e}", exc_info=True)
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+        logger.info("Twilio media stream WebSocket closed")
+
+
 if __name__ == "__main__":
     import uvicorn
 
     port = int(os.getenv("PORT", 8000))
-    uvicorn.run(app, host="localhost", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=port)
