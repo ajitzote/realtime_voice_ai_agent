@@ -11,23 +11,15 @@ class GeminiLive:
     """
     Handles the interaction with the Gemini Live API.
     """
-    def __init__(self, api_key, model, input_sample_rate, tools=None, tool_mapping=None):
-        """
-        Initializes the GeminiLive client.
-
-        Args:
-            api_key (str): The Gemini API Key.
-            model (str): The model name to use.
-            input_sample_rate (int): The sample rate for audio input.
-            tools (list, optional): List of tools to enable. Defaults to None.
-            tool_mapping (dict, optional): Mapping of tool names to functions. Defaults to None.
-        """
+    def __init__(self, api_key, model, input_sample_rate, tools=None, tool_mapping=None, system_instruction=None):
         self.api_key = api_key
         self.model = model
         self.input_sample_rate = input_sample_rate
         self.client = genai.Client(api_key=api_key)
         self.tools = tools or []
         self.tool_mapping = tool_mapping or {}
+        self.system_instruction = system_instruction or "You are a helpful AI assistant. Keep your responses concise."
+        self.resumption_handle: str | None = None
 
     async def start_session(self, audio_input_queue, text_input_queue, audio_output_callback, audio_interrupt_callback=None):
         config = types.LiveConnectConfig(
@@ -39,13 +31,16 @@ class GeminiLive:
                     )
                 )
             ),
-            system_instruction=types.Content(parts=[types.Part(text="You are a helpful AI assistant. Keep your responses concise.")]),
+            system_instruction=types.Content(parts=[types.Part(text=self.system_instruction)]),
             input_audio_transcription=types.AudioTranscriptionConfig(),
             output_audio_transcription=types.AudioTranscriptionConfig(),
             realtime_input_config=types.RealtimeInputConfig(
                 turn_coverage="TURN_INCLUDES_ONLY_ACTIVITY",
             ),
             tools=self.tools,
+            session_resumption=types.SessionResumptionConfig(
+                handle=self.resumption_handle
+            ) if self.resumption_handle else None,
         )
         
         logger.info(f"Connecting to Gemini Live with model={self.model}")
@@ -88,7 +83,10 @@ class GeminiLive:
                             if response.go_away:
                                 logger.warning(f"Received GoAway from Gemini: {response.go_away}")
                             if response.session_resumption_update:
-                                logger.info(f"Session resumption update: {response.session_resumption_update}")
+                                handle = getattr(response.session_resumption_update, "new_handle", None)
+                                if handle:
+                                    self.resumption_handle = handle
+                                    logger.debug("Session resumption handle updated")
                             
                             server_content = response.server_content
                             tool_call = response.tool_call

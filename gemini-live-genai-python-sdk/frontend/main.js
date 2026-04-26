@@ -86,6 +86,20 @@ function appendMessage(type, text) {
   return msgDiv;
 }
 
+async function getGeolocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      () => resolve(null),
+      { timeout: 5000 }
+    );
+  });
+}
+
 // Connect Button Handler
 connectBtn.onclick = async () => {
   statusDiv.textContent = "Connecting...";
@@ -93,7 +107,9 @@ connectBtn.onclick = async () => {
 
   try {
     await mediaHandler.initializeAudio();
-    geminiClient.connect();
+
+    const location = await getGeolocation();
+    geminiClient.connect(location);
   } catch (error) {
     console.error("Connection error:", error);
     statusDiv.textContent = "Connection Failed: " + error.message;
