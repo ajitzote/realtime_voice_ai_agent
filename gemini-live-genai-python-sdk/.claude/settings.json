@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/gemini-live-example/gemini-live-api-examples/**)"
+    ]
+  }
+}

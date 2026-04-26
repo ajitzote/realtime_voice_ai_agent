@@ -44,16 +44,6 @@ class GeminiClient {
     this.send(JSON.stringify({ text: text }));
   }
 
-  sendImage(base64Data, mimeType = "image/jpeg") {
-    this.send(
-      JSON.stringify({
-        type: "image",
-        mime_type: mimeType,
-        data: base64Data,
-      })
-    );
-  }
-
   disconnect() {
     if (this.websocket) {
       this.websocket.close();

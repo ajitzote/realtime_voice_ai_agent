@@ -6,13 +6,9 @@ class MediaHandler {
     this.audioContext = null;
     this.mediaStream = null;
     this.audioWorkletNode = null;
-    this.videoStream = null;
-    this.videoInterval = null;
     this.nextStartTime = 0;
     this.scheduledSources = [];
     this.isRecording = false;
-    this.videoCanvas = document.createElement("canvas");
-    this.canvasCtx = this.videoCanvas.getContext("2d");
   }
 
   async initializeAudio() {
@@ -79,67 +75,6 @@ class MediaHandler {
       this.audioWorkletNode.disconnect();
       this.audioWorkletNode = null;
     }
-  }
-
-  async startVideo(videoElement, onFrame) {
-    try {
-      this.videoStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-      });
-      videoElement.srcObject = this.videoStream;
-
-      this.videoInterval = setInterval(() => {
-        this.captureFrame(videoElement, onFrame);
-      }, 1000); // 1 FPS
-    } catch (e) {
-      console.error("Error starting video:", e);
-      throw e;
-    }
-  }
-
-  async startScreen(videoElement, onFrame, onEnded) {
-    try {
-      this.videoStream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-      });
-      videoElement.srcObject = this.videoStream;
-
-      // Handle stream ending (e.g. user clicks "Stop sharing" in browser UI)
-      this.videoStream.getVideoTracks()[0].onended = () => {
-        this.stopVideo(videoElement);
-        if (onEnded) onEnded();
-      };
-
-      this.videoInterval = setInterval(() => {
-        this.captureFrame(videoElement, onFrame);
-      }, 1000); // 1 FPS
-    } catch (e) {
-      console.error("Error starting screen share:", e);
-      throw e;
-    }
-  }
-
-  stopVideo(videoElement) {
-    if (this.videoStream) {
-      this.videoStream.getTracks().forEach((t) => t.stop());
-      this.videoStream = null;
-    }
-    if (this.videoInterval) {
-      clearInterval(this.videoInterval);
-      this.videoInterval = null;
-    }
-    if (videoElement) {
-      videoElement.srcObject = null;
-    }
-  }
-
-  captureFrame(videoElement, onFrame) {
-    if (!this.videoStream) return;
-    this.videoCanvas.width = 640;
-    this.videoCanvas.height = 480;
-    this.canvasCtx.drawImage(videoElement, 0, 0, 640, 480);
-    const base64 = this.videoCanvas.toDataURL("image/jpeg", 0.7).split(",")[1];
-    onFrame(base64);
   }
 
   playAudio(arrayBuffer) {

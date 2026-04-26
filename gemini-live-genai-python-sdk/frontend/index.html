@@ -33,18 +33,16 @@
                 <strong>Native Audio:</strong> Low latency voice interaction
               </li>
               <li>
-                <strong>Multilingual:</strong> Speak in different languages
+                <strong>Interruption:</strong> Speak to interrupt the model mid-reply
               </li>
-
+              <li>
+                <strong>Weather Tool:</strong> Ask about the weather at your location
+              </li>
             </ul>
             <p>
-              <em
-                >Note: When you connect, the app sends a text message to Gemini
-                instructing it to introduce itself and these features.</em
-              >
+              <em>Click Connect, then Start Mic to begin speaking.</em>
             </p>
           </div>
-          <p>Click below to connect.</p>
           <button id="connectBtn" class="btn">Connect</button>
         </div>
 
@@ -56,20 +54,8 @@
         <div class="app-section hidden" id="app-section">
           <div class="app-grid">
             <div class="left-panel">
-              <div class="video-container">
-                <div id="video-placeholder">Start camera to send video</div>
-                <video id="video-preview" autoplay playsinline muted></video>
-                <canvas id="video-canvas" style="display: none"></canvas>
-              </div>
-
               <div class="controls">
                 <button id="micBtn" class="btn icon-btn">Start Mic</button>
-                <button id="cameraBtn" class="btn icon-btn">
-                  Start Camera
-                </button>
-                <button id="screenBtn" class="btn icon-btn">
-                  Share Screen
-                </button>
                 <button id="disconnectBtn" class="btn icon-btn danger">
                   Disconnect
                 </button>

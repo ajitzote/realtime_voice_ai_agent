@@ -6,13 +6,9 @@ const appSection = document.getElementById("app-section");
 const sessionEndSection = document.getElementById("session-end-section");
 const restartBtn = document.getElementById("restartBtn");
 const micBtn = document.getElementById("micBtn");
-const cameraBtn = document.getElementById("cameraBtn");
-const screenBtn = document.getElementById("screenBtn");
 const disconnectBtn = document.getElementById("disconnectBtn");
 const textInput = document.getElementById("textInput");
 const sendBtn = document.getElementById("sendBtn");
-const videoPreview = document.getElementById("video-preview");
-const videoPlaceholder = document.getElementById("video-placeholder");
 const connectBtn = document.getElementById("connectBtn");
 const chatLog = document.getElementById("chat-log");
 
@@ -27,11 +23,8 @@ const geminiClient = new GeminiClient({
     authSection.classList.add("hidden");
     appSection.classList.remove("hidden");
 
-    // Send hidden instruction
     geminiClient.sendText(
-      `System: Introduce yourself as a demo of the Gemini Live API.
-       Suggest playing with features like the native audio for accents and multilingual support.
-       Keep the intro concise and friendly.`
+      `System: Introduce yourself as a voice assistant powered by Gemini Live API. Keep the intro concise and friendly.`
     );
   },
   onMessage: (event) => {
@@ -99,9 +92,7 @@ connectBtn.onclick = async () => {
   connectBtn.disabled = true;
 
   try {
-    // Initialize audio context on user gesture
     await mediaHandler.initializeAudio();
-
     geminiClient.connect();
   } catch (error) {
     console.error("Connection error:", error);
@@ -111,7 +102,6 @@ connectBtn.onclick = async () => {
   }
 };
 
-// UI Controls
 disconnectBtn.onclick = () => {
   geminiClient.disconnect();
 };
@@ -130,70 +120,6 @@ micBtn.onclick = async () => {
       micBtn.textContent = "Stop Mic";
     } catch (e) {
       alert("Could not start audio capture");
-    }
-  }
-};
-
-cameraBtn.onclick = async () => {
-  if (cameraBtn.textContent === "Stop Camera") {
-    mediaHandler.stopVideo(videoPreview);
-    cameraBtn.textContent = "Start Camera";
-    screenBtn.textContent = "Share Screen";
-    videoPlaceholder.classList.remove("hidden");
-  } else {
-    // If another stream is active (e.g. Screen), stop it first
-    if (mediaHandler.videoStream) {
-      mediaHandler.stopVideo(videoPreview);
-      screenBtn.textContent = "Share Screen";
-    }
-
-    try {
-      await mediaHandler.startVideo(videoPreview, (base64Data) => {
-        if (geminiClient.isConnected()) {
-          geminiClient.sendImage(base64Data);
-        }
-      });
-      cameraBtn.textContent = "Stop Camera";
-      screenBtn.textContent = "Share Screen";
-      videoPlaceholder.classList.add("hidden");
-    } catch (e) {
-      alert("Could not access camera");
-    }
-  }
-};
-
-screenBtn.onclick = async () => {
-  if (screenBtn.textContent === "Stop Sharing") {
-    mediaHandler.stopVideo(videoPreview);
-    screenBtn.textContent = "Share Screen";
-    cameraBtn.textContent = "Start Camera";
-    videoPlaceholder.classList.remove("hidden");
-  } else {
-    // If another stream is active (e.g. Camera), stop it first
-    if (mediaHandler.videoStream) {
-      mediaHandler.stopVideo(videoPreview);
-      cameraBtn.textContent = "Start Camera";
-    }
-
-    try {
-      await mediaHandler.startScreen(
-        videoPreview,
-        (base64Data) => {
-          if (geminiClient.isConnected()) {
-            geminiClient.sendImage(base64Data);
-          }
-        },
-        () => {
-          // onEnded callback (e.g. user stopped sharing from browser)
-          screenBtn.textContent = "Share Screen";
-          videoPlaceholder.classList.remove("hidden");
-        }
-      );
-      screenBtn.textContent = "Stop Sharing";
-      cameraBtn.textContent = "Start Camera";
-      videoPlaceholder.classList.add("hidden");
-    } catch (e) {
-      alert("Could not share screen");
     }
   }
 };
@@ -218,12 +144,8 @@ function resetUI() {
   sessionEndSection.classList.add("hidden");
 
   mediaHandler.stopAudio();
-  mediaHandler.stopVideo(videoPreview);
-  videoPlaceholder.classList.remove("hidden");
 
   micBtn.textContent = "Start Mic";
-  cameraBtn.textContent = "Start Camera";
-  screenBtn.textContent = "Share Screen";
   chatLog.innerHTML = "";
   connectBtn.disabled = false;
 }
@@ -232,7 +154,6 @@ function showSessionEnd() {
   appSection.classList.add("hidden");
   sessionEndSection.classList.remove("hidden");
   mediaHandler.stopAudio();
-  mediaHandler.stopVideo(videoPreview);
 }
 
 restartBtn.onclick = () => {

@@ -29,7 +29,7 @@ class GeminiLive:
         self.tools = tools or []
         self.tool_mapping = tool_mapping or {}
 
-    async def start_session(self, audio_input_queue, video_input_queue, text_input_queue, audio_output_callback, audio_interrupt_callback=None):
+    async def start_session(self, audio_input_queue, text_input_queue, audio_output_callback, audio_interrupt_callback=None):
         config = types.LiveConnectConfig(
             response_modalities=[types.Modality.AUDIO],
             speech_config=types.SpeechConfig(
@@ -39,7 +39,7 @@ class GeminiLive:
                     )
                 )
             ),
-            system_instruction=types.Content(parts=[types.Part(text="You are a helpful AI assistant. Keep your responses concise. Speak in a friendly Irish accent. You can see the user's camera or screen which is shared as realtime input images with you.")]),
+            system_instruction=types.Content(parts=[types.Part(text="You are a helpful AI assistant. Keep your responses concise.")]),
             input_audio_transcription=types.AudioTranscriptionConfig(),
             output_audio_transcription=types.AudioTranscriptionConfig(),
             realtime_input_config=types.RealtimeInputConfig(
@@ -64,19 +64,6 @@ class GeminiLive:
                     logger.debug("send_audio task cancelled")
                 except Exception as e:
                     logger.error(f"send_audio error: {e}\n{traceback.format_exc()}")
-
-            async def send_video():
-                try:
-                    while True:
-                        chunk = await video_input_queue.get()
-                        logger.info(f"Sending video frame to Gemini: {len(chunk)} bytes")
-                        await session.send_realtime_input(
-                            video=types.Blob(data=chunk, mime_type="image/jpeg")
-                        )
-                except asyncio.CancelledError:
-                    logger.debug("send_video task cancelled")
-                except Exception as e:
-                    logger.error(f"send_video error: {e}\n{traceback.format_exc()}")
 
             async def send_text():
                 try:
@@ -171,7 +158,6 @@ class GeminiLive:
                     await event_queue.put(None)
 
             send_audio_task = asyncio.create_task(send_audio())
-            send_video_task = asyncio.create_task(send_video())
             send_text_task = asyncio.create_task(send_text())
             receive_task = asyncio.create_task(receive_loop())
 
@@ -181,14 +167,12 @@ class GeminiLive:
                     if event is None:
                         break
                     if isinstance(event, dict) and event.get("type") == "error":
-                        # Just yield the error event, don't raise to keep the stream alive if possible or let caller handle
                         yield event
-                        break 
+                        break
                     yield event
             finally:
                 logger.info("Cleaning up Gemini Live session tasks")
                 send_audio_task.cancel()
-                send_video_task.cancel()
                 send_text_task.cancel()
                 receive_task.cancel()
         except Exception as e:
